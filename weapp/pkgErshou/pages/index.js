@@ -11,152 +11,96 @@
 */
 // pkgErshou/pages/index.js
 const houseApi = require("../../api/house")
-Page({
 
-    /**
-     * 页面的初始数据
-     */
+Page({
     data: {
         items: [],
-        page: 1,
         business: '',
         kw: '',
         filterOption: {},
-        filter: {
-            page: 1,
+        filter: { page: 1 },
+        loading: false,
+        error: '',
+        filterError: '',
+        hasMore: true
+    },
+
+    onLoad(options) {
+        const business = options.business || '出租'
+        wx.setNavigationBarTitle({ title: business })
+        this.setData({
+            business,
+            filter: { business, page: 1 }
+        })
+        this.loadData()
+        this.loadPostFilter()
+    },
+
+    kwSearch(e) {
+        const filter = { ...this.data.filter, page: 1 }
+        const kw = String(e.detail || '').trim()
+        if (kw) filter.kw = kw
+        else delete filter.kw
+        this.setData({ kw, filter, items: [], hasMore: true })
+        this.loadData()
+    },
+
+    filterChange(e) {
+        const filter = { ...e.detail, business: this.data.business, page: 1 }
+        this.setData({ filter, items: [], hasMore: true })
+        this.loadData()
+    },
+
+    async loadPostFilter() {
+        this.setData({ filterError: '' })
+        try {
+            const response = await houseApi.getHouseFilter(this.data.business)
+            this.setData({ filterOption: response.data.data })
+        } catch (error) {
+            this.setData({ filterError: '筛选条件加载失败，点击重试' })
         }
     },
 
-    /**
-     * 生命周期函数--监听页面加载
-     */
-    onLoad (options) {
-        var _this = this
-        var business = options.business || '出租'
-        var filter = this.data.filter
-        filter.business = business
-        wx.setNavigationBarTitle({
-            title: business,
-        })
-        this.setData({
-            business: business,
-            filter: filter
-        }, () => {
-            _this.loadData()
-            _this.loadPostFilter()
-        })
-
-    },
-
-    kwSearch (e) {
-        var filter = this.data.filter
-        var kw = e.detail
-        if (kw) {
-            filter.kw = kw
-        } else {
-            delete filter.kw
-        }
-        filter.page = 1
-        this.setData({
-            filter: filter,
-            items: []
-        }, () => {
-            this.loadData()
-        })
-    },
-
-    filterChange (e) {
-        var _this = this
-        var filter = e.detail
-        console.log(filter);
-        filter.page = 1
-        this.setData({
-            filter: filter,
-            items: []
-        }, () => {
-            _this.loadData()
-        })
-    },
-
-    loadPostFilter () {
-        var _this = this
-        var business = this.data.business
-        console.log("loadfilter", business);
-        houseApi.getHouseFilter(business).then((resp) => {
-            _this.setData({
-                filterOption: resp.data.data
+    async loadData() {
+        const requestId = (this.requestId || 0) + 1
+        this.requestId = requestId
+        const query = { ...this.data.filter }
+        this.setData({ loading: true, error: '' })
+        try {
+            const response = await houseApi.getHouseList(query)
+            if (this.requestId !== requestId) return
+            const rows = response.data.data.result
+            if (!Array.isArray(rows)) throw new Error('Invalid listing response')
+            this.setData({
+                items: query.page === 1 ? rows : this.data.items.concat(rows),
+                hasMore: rows.length > 0
             })
-        })
+        } catch (error) {
+            if (this.requestId !== requestId) return
+            this.setData({ error: '房源加载失败，点击重试' })
+        } finally {
+            if (this.requestId === requestId) this.setData({ loading: false })
+        }
     },
 
-    loadData: function () {
-        var _this = this
-        var query = this.data.filter
-        houseApi.getHouseList(query).then((res) => {
-            if (res.data.data.result.length > 0) {
-                var item = _this.data.items
-                res.data.data.result.map((ritem) => {
-                    item.push(ritem)
-                })
-                _this.setData({
-                    items: item
-                })
-            }
-        })
-    },
-    /**
-     * 生命周期函数--监听页面初次渲染完成
-     */
-    onReady () {
-
-    },
-
-    /**
-     * 生命周期函数--监听页面显示
-     */
-    onShow () {
-
-    },
-
-    /**
-     * 生命周期函数--监听页面隐藏
-     */
-    onHide () {
-
-    },
-
-    /**
-     * 生命周期函数--监听页面卸载
-     */
-    onUnload () {
-
-    },
-
-    /**
-     * 页面相关事件处理函数--监听用户下拉动作
-     */
-    onPullDownRefresh () {
-
-    },
-
-    /**
-     * 页面上拉触底事件的处理函数
-     */
-    onReachBottom () {
-        // var page = this.data.filter.page || 1
-        var filter = this.data.filter
-        filter.page = filter.page + 1
+    onPullDownRefresh() {
         this.setData({
-            filter: filter,
-        }, () => {
-            this.loadData()
+            filter: { ...this.data.filter, page: 1 },
+            hasMore: true
         })
+        return this.loadData().finally(() => wx.stopPullDownRefresh())
     },
 
-    /**
-     * 用户点击右上角分享
-     */
-    onShareAppMessage () {
+    onReachBottom() {
+        if (this.data.loading || !this.data.hasMore || this.data.error) return
+        this.setData({
+            filter: { ...this.data.filter, page: this.data.filter.page + 1 }
+        })
+        this.loadData()
+    },
 
+    onUnload() {
+        // Late requests must not update a page that has already closed.
+        this.requestId = (this.requestId || 0) + 1
     }
 })
