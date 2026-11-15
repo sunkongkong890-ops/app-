@@ -10,3 +10,38 @@
 * +----------------------------------------------------------------------
 */
 /* pkgErshou/pages/index.wxss */
+page {
+    background: #fff;
+}
+
+.listings-page {
+    min-height: 100vh;
+}
+
+.listing-search {
+    padding: 8rpx 12rpx;
+}
+
+.listing-filters {
+    padding: 4rpx 24rpx 12rpx;
+    border-bottom: 1rpx solid #e9ebef;
+}
+
+.listing-results {
+    padding: 0 24rpx env(safe-area-inset-bottom);
+}
+
+.listing-row {
+    padding: 20rpx 0;
+}
+
+.listing-row + .listing-row {
+    border-top: 1rpx solid #e9ebef;
+}
+
+.listing-status {
+    padding: 28rpx 16rpx;
+    color: #707780;
+    font-size: 26rpx;
+    text-align: center;
+}
